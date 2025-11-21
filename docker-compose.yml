@@ -1,0 +1,18 @@
+services:
+  flow-command:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: flow-command:latest
+    container_name: flow-command
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - flow-network
+
+networks:
+  flow-network:
+    driver: bridge
