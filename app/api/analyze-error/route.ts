@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
         console.log(`[CACHE MISS] Fetching fresh analysis for execution ${executionId}`);
 
         // Fetch execution details
-        let execution;
-        let workflows;
-        let workflow;
+        let execution: any;
+        let workflows: any;
+        let workflow: any;
 
         try {
             console.log('[API] Creating N8nClient for instance:', instanceId);
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
             workflows = await client.getAllWorkflows();
             console.log('[API] Workflows fetched:', workflows.length);
 
-            workflow = workflows.find(w => w.id === execution.workflowId);
+            workflow = workflows.find((w: any) => w.id === execution.workflowId);
             console.log('[API] Workflow found:', workflow?.name || 'UNKNOWN');
         } catch (error) {
             console.error('[API ERROR] Failed to fetch execution data:', error);
@@ -82,9 +82,9 @@ export async function POST(request: NextRequest) {
 
         if (runData) {
             for (const [nodeName, nodeExecutions] of Object.entries(runData)) {
-                if (nodeExecutions[0]?.error) {
+                if ((nodeExecutions as any)[0]?.error) {
                     failedNode = nodeName;
-                    nodeError = nodeExecutions[0].error;
+                    nodeError = (nodeExecutions as any)[0].error;
                     break;
                 }
             }
