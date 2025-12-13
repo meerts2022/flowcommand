@@ -24,6 +24,33 @@ export interface Execution {
   workflowId: string;
 }
 
+export interface ExecutionError {
+  message: string;
+  description?: string;
+  context?: any;
+  stack?: string;
+  cause?: any;
+}
+
+export interface NodeExecutionData {
+  error?: ExecutionError;
+  startTime?: number;
+  executionTime?: number;
+  source?: any[];
+  data?: any;
+}
+
+export interface ExecutionDetail extends Execution {
+  data?: {
+    resultData?: {
+      error?: ExecutionError;
+      runData?: Record<string, NodeExecutionData[]>;
+      lastNodeExecuted?: string;
+    };
+    executionData?: any;
+  };
+}
+
 interface N8nApiResponse<T> {
   data: T;
   nextCursor?: string;
@@ -151,11 +178,37 @@ export class N8nClient {
 
   async healthCheck(): Promise<boolean> {
     try {
-      const baseUrl = this.getBaseUrl();
-      const response = await fetch(`${baseUrl}/healthz`);
-      return response.ok;
+      // Use the authenticated API endpoint instead of /healthz
+      // This is more reliable as /healthz may not exist on all n8n versions
+      await this.fetch<Workflow[]>('/workflows?limit=1');
+      return true;
     } catch (error) {
+      console.error('Health check failed:', error);
       return false;
+    }
+  }
+
+  async getExecutionDetail(executionId: string): Promise<ExecutionDetail> {
+    // Note: The /executions/{id} endpoint returns the execution directly, not wrapped in {data: ...}
+    const baseUrl = this.getBaseUrl();
+    const url = `${baseUrl}/api/v1/executions/${executionId}?includeData=true`;
+    const headers = {
+      'X-N8N-API-KEY': this.instance.apiKey,
+      'Content-Type': 'application/json',
+    };
+
+    const response = await fetch(url, { headers });
+    const text = await response.text();
+
+    if (!response.ok) {
+      throw new Error(`N8n API Error: ${response.status} ${response.statusText}${text ? `: ${text}` : ''}`);
+    }
+
+    try {
+      const execution = JSON.parse(text);
+      return execution as ExecutionDetail;
+    } catch (e) {
+      throw new Error(`Invalid JSON response from execution detail: ${text.substring(0, 100)}...`);
     }
   }
 }

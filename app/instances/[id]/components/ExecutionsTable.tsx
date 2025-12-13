@@ -98,15 +98,30 @@ export default function ExecutionsTable({ executions, workflows, instance }: Pro
                                     <td className="p-4 text-slate-400">
                                         {new Date(exec.startedAt).toLocaleString()}
                                     </td>
-                                    <td className="p-4 font-mono text-xs text-slate-500">
-                                        {exec.id}
+                                    <td className="p-4">
+                                        {exec.status === 'error' ? (
+                                            <a
+                                                href={`/instances/${instance.id}/executions/${exec.id}`}
+                                                className="font-mono text-xs text-blue-400 hover:text-blue-300 hover:underline transition-colors flex items-center gap-2 group"
+                                                title="Click to view error details and AI analysis"
+                                            >
+                                                <span>{exec.id}</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 group-hover:scale-110 transition-transform">
+                                                    <circle cx="12" cy="12" r="10" />
+                                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                                </svg>
+                                            </a>
+                                        ) : (
+                                            <span className="font-mono text-xs text-slate-500">{exec.id}</span>
+                                        )}
                                     </td>
                                     <td className="p-4">
                                         <span className={`px-2 py-1 rounded-full text-xs font-medium border ${exec.status === 'success'
-                                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                : exec.status === 'error'
-                                                    ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                                                    : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                            : exec.status === 'error'
+                                                ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                                : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                                             }`}>
                                             {exec.status.charAt(0).toUpperCase() + exec.status.slice(1)}
                                         </span>

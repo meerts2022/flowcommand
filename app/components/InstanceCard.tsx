@@ -14,16 +14,21 @@ async function getInstanceStatus(instance: N8nInstance) {
         if (isHealthy) {
             try {
                 // Fetch ALL workflows to get accurate count
-                // Fetch recent executions for status
+                // Fetch more executions and sort them by date (API doesn't guarantee order by startedAt)
                 const [workflows, executions] = await Promise.all([
                     client.getAllWorkflows(),
-                    client.getExecutions(1)
+                    client.getExecutions(50) // Get more to ensure we catch the latest
                 ]);
 
-                workflowCount = workflows.length;
+                let workflowCount = workflows.length;
 
                 if (executions.length > 0) {
-                    const lastExec = executions[0];
+                    // Sort executions by startedAt in descending order (most recent first)
+                    const sortedExecutions = [...executions].sort((a, b) =>
+                        new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+                    );
+
+                    const lastExec = sortedExecutions[0];
                     const workflow = workflows.find(w => w.id === lastExec.workflowId);
                     lastExecutionName = workflow ? workflow.name : 'Unknown Workflow';
 
@@ -35,6 +40,41 @@ async function getInstanceStatus(instance: N8nInstance) {
                         hour: '2-digit',
                         minute: '2-digit'
                     });
+
+                    // Determine execution status more accurately
+                    let execStatus: string;
+                    if (lastExec.waitTill) {
+                        execStatus = 'waiting';
+                    } else if (lastExec.status) {
+                        execStatus = lastExec.status; // 'error', 'success', etc.
+                    } else if (lastExec.finished === false) {
+                        execStatus = 'running';
+                    } else if (lastExec.finished === true) {
+                        // If finished but no explicit status, assume success
+                        execStatus = 'success';
+                    } else {
+                        execStatus = 'unknown';
+                    }
+
+                    console.log(`[${instance.name}] Last execution:`, {
+                        id: lastExec.id,
+                        status: lastExec.status,
+                        finished: lastExec.finished,
+                        determinedStatus: execStatus
+                    });
+
+                    // Return execution status and ID for error tracking
+                    return {
+                        ...instance,
+                        status: isHealthy ? 'online' : 'offline',
+                        workflows: workflowCount,
+                        lastExecutionName,
+                        lastExecutionTime,
+                        lastExecutionStatus: execStatus,
+                        lastExecutionId: lastExec.id,
+                        lastChecked: new Date().toLocaleTimeString(),
+                        error,
+                    };
                 }
             } catch (e) {
                 console.error(`Failed to fetch stats for ${instance.name}:`, e);
@@ -48,6 +88,8 @@ async function getInstanceStatus(instance: N8nInstance) {
             workflows: workflowCount,
             lastExecutionName,
             lastExecutionTime,
+            lastExecutionStatus: undefined,
+            lastExecutionId: undefined,
             lastChecked: new Date().toLocaleTimeString(),
             error,
         };
@@ -58,6 +100,8 @@ async function getInstanceStatus(instance: N8nInstance) {
             workflows: 0,
             lastExecutionName: '-',
             lastExecutionTime: '-',
+            lastExecutionStatus: undefined,
+            lastExecutionId: undefined,
             lastChecked: new Date().toLocaleTimeString(),
             error: 'Failed to connect',
         };
@@ -108,8 +152,24 @@ export default async function InstanceCard({ instanceConfig }: { instanceConfig:
                 </div>
                 <div className="bg-slate-800/50 rounded-lg p-3">
                     <div className="text-slate-400 text-xs uppercase tracking-wider mb-1">Last Execution</div>
-                    <div className="font-medium text-sm truncate" title={instance.lastExecutionName}>
-                        {instance.lastExecutionName}
+                    <div className="flex items-center gap-2">
+                        <div className="font-medium text-sm truncate flex-1" title={instance.lastExecutionName}>
+                            {instance.lastExecutionName}
+                        </div>
+                        {instance.lastExecutionStatus === 'error' && instance.lastExecutionId && (
+                            <Link
+                                href={`/instances/${instance.id}/executions/${instance.lastExecutionId}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-shrink-0 hover:scale-110 transition-transform"
+                            >
+                                <div className="w-5 h-5 rounded-full bg-red-500/20 border border-red-500/40 hover:bg-red-500/30 hover:border-red-500/60 flex items-center justify-center transition-colors" title="Execution failed - click for details">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-red-400">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </div>
+                            </Link>
+                        )}
                     </div>
                     <div className="text-xs text-slate-500 mt-1">{instance.lastExecutionTime}</div>
                 </div>

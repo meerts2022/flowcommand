@@ -3,6 +3,10 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import InstanceCard from './components/InstanceCard';
 
+// Force dynamic rendering - no caching, always fetch fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 function CardSkeleton() {
   return (
     <div className="glass-panel rounded-2xl p-6 animate-pulse">
