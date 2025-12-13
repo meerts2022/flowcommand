@@ -22,6 +22,7 @@ export interface Execution {
   startedAt: string;
   stoppedAt: string;
   workflowId: string;
+  waitTill?: string;
 }
 
 export interface ExecutionError {
