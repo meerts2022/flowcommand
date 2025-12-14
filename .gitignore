@@ -42,3 +42,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/lib/generated/prisma
+
+# SQLite database files
+*.db
+*.db-journal
+
+# Prisma migrations (deploy in production, don't commit dev migrations)
+# Comment out if you want to version control migrations
+# /prisma/migrations

@@ -1,4 +1,6 @@
 import { getStoredInstances } from '@/lib/storage';
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import InstanceCard from './components/InstanceCard';
@@ -30,7 +32,13 @@ function CardSkeleton() {
 
 // Main Dashboard Component
 export default async function Home() {
-  const instances = await getStoredInstances();
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    redirect('/auth/signin');
+  }
+
+  const instances = await getStoredInstances(session.user.id);
 
   return (
     <main className="min-h-screen p-8 bg-slate-950 text-slate-100">

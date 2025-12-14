@@ -1,37 +1,68 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { N8nInstance } from './n8n-client';
+import { prisma } from './prisma'
+import { N8nInstance } from './n8n-client'
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const DATA_FILE = path.join(DATA_DIR, 'instances.json');
+export async function getStoredInstances(userId: string): Promise<N8nInstance[]> {
+    const instances = await prisma.instance.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' }
+    })
 
-export async function getStoredInstances(): Promise<N8nInstance[]> {
-    try {
-        await fs.mkdir(DATA_DIR, { recursive: true });
-        const data = await fs.readFile(DATA_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        // If file doesn't exist or is invalid, return empty array
-        return [];
+    return instances.map(i => ({
+        id: i.id,
+        name: i.name,
+        url: i.url,
+        apiKey: i.apiKey,
+    }))
+}
+
+export async function saveInstance(userId: string, instance: N8nInstance): Promise<N8nInstance> {
+    const saved = await prisma.instance.upsert({
+        where: { id: instance.id },
+        update: {
+            name: instance.name,
+            url: instance.url,
+            apiKey: instance.apiKey,
+        },
+        create: {
+            id: instance.id,
+            name: instance.name,
+            url: instance.url,
+            apiKey: instance.apiKey,
+            userId,
+        }
+    })
+
+    return {
+        id: saved.id,
+        name: saved.name,
+        url: saved.url,
+        apiKey: saved.apiKey,
     }
 }
 
-export async function saveInstance(instance: N8nInstance): Promise<N8nInstance> {
-    const instances = await getStoredInstances();
-
-    const existingIndex = instances.findIndex(i => i.id === instance.id);
-    if (existingIndex >= 0) {
-        instances[existingIndex] = instance;
-    } else {
-        instances.push(instance);
-    }
-
-    await fs.writeFile(DATA_FILE, JSON.stringify(instances, null, 2));
-    return instance;
+export async function deleteInstance(userId: string, id: string): Promise<void> {
+    await prisma.instance.deleteMany({
+        where: {
+            id,
+            userId // Security: only delete own instances
+        }
+    })
 }
 
-export async function deleteInstance(id: string): Promise<void> {
-    const instances = await getStoredInstances();
-    const filtered = instances.filter(i => i.id !== id);
-    await fs.writeFile(DATA_FILE, JSON.stringify(filtered, null, 2));
+export async function getInstance(userId: string, id: string): Promise<N8nInstance | null> {
+    const instance = await prisma.instance.findFirst({
+        where: {
+            id,
+            userId // Security: only get own instances
+        }
+    })
+
+    if (!instance) return null
+
+    return {
+        id: instance.id,
+        name: instance.name,
+        url: instance.url,
+        apiKey: instance.apiKey,
+    }
 }

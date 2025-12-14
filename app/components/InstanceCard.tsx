@@ -20,7 +20,7 @@ async function getInstanceStatus(instance: N8nInstance) {
                     client.getExecutions(50) // Get more to ensure we catch the latest
                 ]);
 
-                let workflowCount = workflows.length;
+                workflowCount = workflows.length;
 
                 if (executions.length > 0) {
                     // Sort executions by startedAt in descending order (most recent first)
