@@ -1,5 +1,4 @@
 import { prisma } from './prisma'
-import { Instance } from '@prisma/client'
 import { N8nInstance } from './n8n-client'
 
 export async function getStoredInstances(userId: string): Promise<N8nInstance[]> {
@@ -8,7 +7,7 @@ export async function getStoredInstances(userId: string): Promise<N8nInstance[]>
         orderBy: { createdAt: 'desc' }
     })
 
-    return instances.map((i: Instance): N8nInstance => ({
+    return instances.map((i: any): N8nInstance => ({
         id: i.id,
         name: i.name,
         url: i.url,
