@@ -8,6 +8,8 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    volumes:
+      - flow-command-data:/app/data
     environment:
       - NODE_ENV=production
     networks:
@@ -16,3 +18,7 @@ services:
 networks:
   flow-network:
     driver: bridge
+
+volumes:
+  flow-command-data:
+    driver: local
