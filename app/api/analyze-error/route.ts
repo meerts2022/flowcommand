@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { N8nClient } from '@/lib/n8n-client';
 import { getStoredInstances } from '@/lib/storage';
 import { getCachedAnalysis, saveCachedAnalysis } from '@/lib/analysis-cache';
 
 export async function POST(request: NextRequest) {
     try {
+        const session = await auth();
+
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { instanceId, executionId, forceRefresh } = await request.json();
 
         if (!instanceId || !executionId) {
@@ -14,8 +21,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get instance
-        const instances = await getStoredInstances();
+        // Get instance (user-specific)
+        const instances = await getStoredInstances(session.user.id);
         const instance = instances.find(i => i.id === instanceId);
 
         if (!instance) {
