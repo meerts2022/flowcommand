@@ -7,7 +7,7 @@ export async function getStoredInstances(userId: string): Promise<N8nInstance[]>
         orderBy: { createdAt: 'desc' }
     })
 
-    return instances.map(i => ({
+    return instances.map((i): N8nInstance => ({
         id: i.id,
         name: i.name,
         url: i.url,
