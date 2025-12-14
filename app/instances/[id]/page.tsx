@@ -1,7 +1,8 @@
 import { N8nClient, N8nInstance } from '@/lib/n8n-client';
+import { auth } from '@/lib/auth';
 import { getStoredInstances } from '@/lib/storage';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import ExecutionsTable from './components/ExecutionsTable';
 
 interface Props {
@@ -50,8 +51,14 @@ async function getInstanceData(instance: N8nInstance) {
 }
 
 export default async function InstancePage({ params }: Props) {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+        redirect('/auth/signin');
+    }
+
     const { id } = await params;
-    const instances = await getStoredInstances();
+    const instances = await getStoredInstances(session.user.id);
     const instance = instances.find((i) => i.id === id);
 
     if (!instance) {

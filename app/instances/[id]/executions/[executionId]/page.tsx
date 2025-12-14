@@ -1,6 +1,7 @@
 import { N8nClient } from '@/lib/n8n-client';
+import { auth } from '@/lib/auth';
 import { getStoredInstances } from '@/lib/storage';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 
 // Make page dynamic to avoid caching
@@ -11,8 +12,14 @@ export default async function ExecutionErrorPage({
 }: {
     params: Promise<{ id: string; executionId: string }>;
 }) {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+        redirect('/auth/signin');
+    }
+
     const { id, executionId } = await params;
-    const instances = await getStoredInstances();
+    const instances = await getStoredInstances(session.user.id);
     const instance = instances.find(i => i.id === id);
 
     if (!instance) {
