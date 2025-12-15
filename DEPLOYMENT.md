@@ -1,210 +1,280 @@
-# 🚀 FlowCommand Deployment Guide
+# FlowCommand Deployment Guide
 
-## 📋 Overzicht
-Deze guide helpt je om FlowCommand van je lokale computer naar GitHub en vervolgens naar je productieserver (Hostinger) te deployen.
+## Production Deployment op EasyPanel
 
-## Stap 1: GitHub Repository Aanmaken
-
-### 1.1 Ga naar GitHub
-- Open https://github.com
-- Log in met je account (of maak er een aan)
-
-### 1.2 Nieuwe Repository Maken
-1. Klik rechtsboven op het **+** icoon
-2. Kies **New repository**
-3. Vul in:
-   - **Repository name**: `flowcommand` (of een andere naam)
-   - **Description**: "Mission Control for N8N Fleet"
-   - **Private**: Aanvinken (zodat alleen jij de code ziet)
-4. **BELANGRIJK**: Vink NIETS aan bij "Initialize this repository"
-5. Klik op **Create repository**
-
-### 1.3 Kopieer de Repository URL
-- Je ziet nu een pagina met commando's
-- Kopieer de URL die lijkt op: `https://github.com/jouwgebruikersnaam/flowcommand.git`
+Deze guide beschrijft de volledige deployment van FlowCommand naar productie op EasyPanel (https://cto360.nl).
 
 ---
 
-## Stap 2: Lokaal Git Klaarmaken
+## 📋 Prerequisites
 
-### 2.1 Open PowerShell in je projectmap
-1. Open File Explorer
-2. Ga naar: `C:\Users\frank\.gemini\antigravity\scratch\flow-command`
-3. Type in de adresbalk: `powershell` en druk op Enter
+- **EasyPanel account** met toegang
+- **GitHub repository** verbonden met EasyPanel
+- **Google OAuth credentials** (Client ID & Secret)
+- **Gemini API key** voor AI features
+- **Domain** (cto360.nl) geconfigureerd in EasyPanel
 
-### 2.2 Voer deze commando's uit (één voor één):
+---
 
-```powershell
-# Initialiseer Git (maakt een .git map aan)
-git init
+## 🔧 Environment Variables
 
-# Voeg alle bestanden toe (behalve die in .gitignore)
+Stel de volgende environment variables in via EasyPanel:
+
+```bash
+# NextAuth Configuration
+NEXTAUTH_URL=https://cto360.nl
+NEXTAUTH_SECRET=<your-secret-key>
+AUTH_TRUST_HOST=true
+
+# Google OAuth
+GOOGLE_CLIENT_ID=<your-google-client-id>
+GOOGLE_CLIENT_SECRET=<your-google-client-secret>
+
+# Database
+DATABASE_URL=file:/app/data/flowcommand.db
+
+# AI Features
+GEMINI_API_KEY=<your-gemini-api-key>
+```
+
+### Important Notes:
+- `DATABASE_URL` MOET een **absoluut pad** zijn: `file:/app/data/flowcommand.db`
+- `AUTH_TRUST_HOST=true` is nodig voor NextAuth in productie
+- `NEXTAUTH_SECRET` genereer via: `openssl rand -base64 32`
+
+---
+
+## 🚀 Deployment Process
+
+### 1. Push naar GitHub
+
+```bash
 git add .
-
-# Maak je eerste "commit" (snapshot van de code)
-git commit -m "Initial commit: FlowCommand dashboard"
-
-# Verander de standaard branch naam naar 'main'
-git branch -M main
-
-# Koppel je lokale project aan GitHub
-# VERVANG DE URL HIERONDER MET JOUW GITHUB URL!
-git remote add origin https://github.com/JOUWGEBRUIKERSNAAM/flowcommand.git
-
-# Upload je code naar GitHub
-git push -u origin main
+git commit -m "Your commit message"
+git push origin main
 ```
 
-**Let op:** Bij de eerste keer vragen ze mogelijk om je GitHub gebruikersnaam en wachtwoord/token.
+### 2. Automatische Build
+
+EasyPanel detecteert de push en start automatisch de build via Dockerfile:
+- Dependencies installeren
+- Prisma Client genereren (met correcte binary targets)
+- Next.js build
+- Docker image maken
+
+### 3. Database Initialisatie (EERSTE DEPLOYMENT)
+
+**Na de eerste deployment**, open een terminal in EasyPanel (Shell - Sh) en run:
+
+```bash
+# Stel DATABASE_URL in
+export DATABASE_URL="file:/app/data/flowcommand.db"
+
+# Run database migration
+node scripts/run-migration.js
+
+# Verifieer dat alle tables zijn aangemaakt
+node scripts/check-db.js
+```
+
+**Expected output van `check-db.js`:**
+```
+📋 Tables in database:
+  - users
+  - accounts
+  - sessions
+  - instances
+  - verification_tokens
+```
+
+### 4. Test de Applicatie
+
+1. Ga naar: https://cto360.nl
+2. Klik "Sign in with Google"
+3. Login met je Google account
+4. Dashboard zou moeten verschijnen! 🎉
 
 ---
 
-## Stap 3: Productieserver Voorbereiden (Hostinger)
+## 🗄️ Database Management
 
-### 3.1 SSH Toegang tot je Server
-```powershell
-ssh jouwgebruikersnaam@jouwserver.hostinger.com
-```
+### Database Locatie
+- **Pad:** `/app/data/flowcommand.db`
+- **Type:** SQLite
+- **Mounted volume:** EasyPanel mount `/app/data` voor persistence
 
-### 3.2 Installeer Docker (als nog niet gedaan)
+### Database Scripts
+
 ```bash
-# Update systeem
-sudo apt update
+# Check welke tables er zijn
+node scripts/check-db.js
 
-# Installeer Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+# Run migrations (voert alle SQL statements uit)
+node scripts/run-migration.js
 
-# Installeer Docker Compose
-sudo apt install docker-compose -y
-
-# Voeg je gebruiker toe aan docker groep
-sudo usermod -aG docker $USER
-
-# Log opnieuw in zodat wijzigingen actief worden
-exit
-# SSH opnieuw in
+# Debug SQL parsing
+node scripts/debug-sql.js
 ```
 
-### 3.3 Maak een map voor je project
+### Database Reset (ONLY IF NEEDED)
+
 ```bash
-mkdir -p ~/flowcommand
-cd ~/flowcommand
-```
+# Verwijder database
+rm /app/data/flowcommand.db
 
----
-
-## Stap 4: Code van GitHub naar Server Halen
-
-### 4.1 Clone de Repository
-```bash
-cd ~/flowcommand
-git clone https://github.com/JOUWGEBRUIKERSNAAM/flowcommand.git .
-```
-
-### 4.2 Maak de data map aan
-```bash
-mkdir -p data
-```
-
-### 4.3 Start de applicatie
-```bash
-docker-compose up -d --build
-```
-
----
-
-## Stap 5: Updates Deployen (Elke Keer als je Wijzigingen Hebt)
-
-### Op je LOKALE computer (Windows):
-```powershell
-# Ga naar je projectmap
-cd C:\Users\frank\.gemini\antigravity\scratch\flow-command
-
-# Voeg je wijzigingen toe
-git add .
-
-# Maak een commit met een beschrijving
-git commit -m "Beschrijving van je wijziging"
-
-# Upload naar GitHub
-git push
-```
-
-### Op je PRODUCTIESERVER (via SSH):
-```bash
-# Ga naar de projectmap
-cd ~/flowcommand
-
-# Haal de nieuwste versie op
-git pull
-
-# Herbouw en herstart de containers
-docker-compose down
-docker-compose up -d --build
+# Maak opnieuw aan
+export DATABASE_URL="file:/app/data/flowcommand.db"
+node scripts/run-migration.js
 ```
 
 ---
 
-## 🔧 Handige Commando's
+## 🐛 Troubleshooting
 
-### Lokaal (Windows PowerShell):
-```powershell
-# Status bekijken (welke bestanden zijn gewijzigd)
-git status
+### Problem: "UntrustedHost" Error
 
-# Geschiedenis bekijken
-git log --oneline
-
-# Wijzigingen ongedaan maken (voor commit)
-git restore .
+**Symptom:**
+```
+[auth][error] UntrustedHost: Host must be trusted
 ```
 
-### Op de Server:
+**Solution:**
+1. Zorg dat `AUTH_TRUST_HOST=true` is ingesteld in environment variables
+2. De code heeft ook `trustHost: true` in `lib/auth.ts` (beide zijn nodig)
+3. Restart de container na het toevoegen van environment variables
+
+---
+
+### Problem: "Table does not exist" Error
+
+**Symptom:**
+```
+The table `main.accounts` does not exist in the current database
+```
+
+**Solution:**
 ```bash
-# Logs bekijken
-docker-compose logs -f
-
-# Containers stoppen
-docker-compose down
-
-# Containers starten
-docker-compose up -d
-
-# Container status
-docker ps
+# Open terminal in EasyPanel
+export DATABASE_URL="file:/app/data/flowcommand.db"
+node scripts/run-migration.js
+node scripts/check-db.js  # Verifieer alle 5 tables
 ```
 
 ---
 
-## 🆘 Troubleshooting
+### Problem: Prisma Binary Error
 
-### "Permission denied" bij git push
-- Je moet mogelijk een Personal Access Token maken op GitHub:
-  1. Ga naar GitHub → Settings → Developer settings → Personal access tokens
-  2. Genereer een nieuwe token met "repo" rechten
-  3. Gebruik deze token als wachtwoord
-
-### Port 3000 is al in gebruik
-```bash
-# Vind het proces
-sudo lsof -i :3000
-
-# Stop het
-sudo kill -9 [PROCESS_ID]
+**Symptom:**
+```
+Prisma Client could not locate the Query Engine for runtime "linux-musl-openssl-3.0.x"
 ```
 
-### Docker heeft geen rechten
+**Solution:**
+Dit is al opgelost in de huidige configuratie:
+- `prisma/schema.prisma` heeft `binaryTargets = ["native", "linux-musl-openssl-3.0.x"]`
+- `Dockerfile` installeert OpenSSL in BEIDE build stages (builder + runner)
+- Als dit toch voorkomt: rebuild de applicatie (trigger nieuwe deployment)
+
+---
+
+### Problem: Database File Permissions
+
+**Symptom:**
+```
+Error code 14: Unable to open the database file
+```
+
+**Solution:**
 ```bash
-sudo chmod 666 /var/run/docker.sock
+# Maak data directory aan (indien nodig)
+mkdir -p /app/data
+
+# Maak database file aan met juiste permissions
+touch /app/data/flowcommand.db
+chmod 666 /app/data/flowcommand.db
+
+# Run migration
+export DATABASE_URL="file:/app/data/flowcommand.db"
+node scripts/run-migration.js
 ```
 
 ---
 
-## 📝 Opmerkingen
-- De `data/instances.json` wordt NIET naar GitHub geüpload (staat in .gitignore)
-- Dit betekent dat je je instances opnieuw moet toevoegen op de productieserver
-- Alternatief: Kopieer `data/instances.json` handmatig met `scp`:
-  ```powershell
-  scp C:\Users\frank\.gemini\antigravity\scratch\flow-command\data\instances.json user@server:~/flowcommand/data/
-  ```
+## 📁 Important Files
+
+### Dockerfile
+- Installeert OpenSSL in builder stage (voor Prisma binary generation)
+- Installeert OpenSSL in runner stage (voor Prisma runtime)
+- Kopieert Prisma schema en client
+- Kopieert custom scripts folder
+
+### prisma/schema.prisma
+- `binaryTargets = ["native", "linux-musl-openssl-3.0.x"]` voor Alpine Linux
+- SQLite provider met `DATABASE_URL` env var
+
+### lib/auth.ts
+- `trustHost: true` voor productie deployment
+- PrismaAdapter voor database authenticatie
+- Google OAuth provider
+
+### scripts/run-migration.js
+- Leest migration SQL file
+- Verwijdert comment regels (`-- CreateTable`)
+- Split SQL in individuele statements
+- Voert elk statement apart uit
+- Skip "already exists" errors
+
+---
+
+## 🔄 Future Deployments
+
+Voor nieuwe deployments:
+1. Push code naar GitHub
+2. EasyPanel rebuildt automatisch
+3. **GEEN handmatige database stappen nodig** (database blijft bestaan in `/app/data`)
+4. Test de applicatie
+
+**Only run migrations manually als:**
+- Je nieuwe migrations hebt toegevoegd
+- Database is corrupt
+- Na database reset
+
+---
+
+## 📊 Monitoring
+
+### Check Logs
+In EasyPanel → FlowCommand → Logs tab
+
+**Zoek naar:**
+- `✓ Ready in XXms` = App is gestart
+- `[auth][error]` = Authentication errors
+- `PrismaClientKnownRequestError` = Database errors
+
+### Health Check
+- **URL:** https://cto360.nl
+- **Expected:** Login scherm verschijnt
+- **After login:** Dashboard met instances
+
+---
+
+## 🛡️ Security Notes
+
+1. **Environment Variables:** Bewaar deze ALLEEN in EasyPanel, niet in git
+2. **Database Backups:** Maak regelmatig backups van `/app/data/flowcommand.db`
+3. **Google OAuth:** Whitelist alleen `https://cto360.nl` in Google Console
+4. **NEXTAUTH_SECRET:** Gebruik een sterke random key, verander NOOIT in productie
+
+---
+
+## 📞 Support
+
+Bij problemen:
+1. Check de logs in EasyPanel
+2. Check deze troubleshooting guide
+3. Run `node scripts/check-db.js` om database status te checken
+4. Check `.agent/workflows/production-deployment-blocker.md` voor historische issues
+
+---
+
+**🎉 Deployment succesvol! FlowCommand draait op https://cto360.nl**
