@@ -8,11 +8,17 @@ async function runMigration() {
         console.log('📝 Reading migration SQL...');
         const sql = fs.readFileSync('/app/prisma/migrations/20251214230237_init/migration.sql', 'utf8');
 
-        // Split SQL into individual statements
-        const statements = sql
+        // Remove comment lines first
+        const cleanedSql = sql
+            .split('\n')
+            .filter(line => !line.trim().startsWith('--'))
+            .join('\n');
+
+        // Then split into individual statements
+        const statements = cleanedSql
             .split(';')
             .map(s => s.trim())
-            .filter(s => s.length > 0 && !s.startsWith('--'));
+            .filter(s => s.length > 0);
 
         console.log(`⚙️  Executing ${statements.length} SQL statements...`);
 
