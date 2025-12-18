@@ -1,7 +1,14 @@
 import { N8nClient, N8nInstance } from '@/lib/n8n-client';
 import Link from 'next/link';
+import { getCachedInstanceStatus, setCachedInstanceStatus } from '@/lib/instance-cache';
 
 async function getInstanceStatus(instance: N8nInstance) {
+    // 🚀 CRITICAL: Check cache first to reduce CPU usage!
+    const cached = getCachedInstanceStatus(instance.id);
+    if (cached) {
+        return cached;
+    }
+
     try {
         const client = new N8nClient(instance);
         const isHealthy = await client.healthCheck();
@@ -13,11 +20,11 @@ async function getInstanceStatus(instance: N8nInstance) {
 
         if (isHealthy) {
             try {
-                // Fetch ALL workflows to get accurate count
-                // Fetch more executions and sort them by date (API doesn't guarantee order by startedAt)
+                // 🚀 REDUCED API CALLS: Only fetch 10 workflows and 5 executions
+                // This reduces CPU usage from 100+ API calls to ~10
                 const [workflows, executions] = await Promise.all([
-                    client.getAllWorkflows(),
-                    client.getExecutions(50) // Get more to ensure we catch the latest
+                    client.getWorkflows(10),     // Reduced from getAllWorkflows()
+                    client.getExecutions(5)      // Reduced from 50 to 5
                 ]);
 
                 workflowCount = workflows.length;
@@ -64,7 +71,7 @@ async function getInstanceStatus(instance: N8nInstance) {
                     });
 
                     // Return execution status and ID for error tracking
-                    return {
+                    const result = {
                         ...instance,
                         status: isHealthy ? 'online' : 'offline',
                         workflows: workflowCount,
@@ -75,6 +82,8 @@ async function getInstanceStatus(instance: N8nInstance) {
                         lastChecked: new Date().toLocaleTimeString(),
                         error,
                     };
+                    setCachedInstanceStatus(instance.id, result);
+                    return result;
                 }
             } catch (e) {
                 console.error(`Failed to fetch stats for ${instance.name}:`, e);
@@ -82,7 +91,7 @@ async function getInstanceStatus(instance: N8nInstance) {
             }
         }
 
-        return {
+        const result = {
             ...instance,
             status: isHealthy ? 'online' : 'offline',
             workflows: workflowCount,
@@ -93,8 +102,10 @@ async function getInstanceStatus(instance: N8nInstance) {
             lastChecked: new Date().toLocaleTimeString(),
             error,
         };
+        setCachedInstanceStatus(instance.id, result);
+        return result;
     } catch (e) {
-        return {
+        const result = {
             ...instance,
             status: 'offline',
             workflows: 0,
@@ -105,6 +116,8 @@ async function getInstanceStatus(instance: N8nInstance) {
             lastChecked: new Date().toLocaleTimeString(),
             error: 'Failed to connect',
         };
+        setCachedInstanceStatus(instance.id, result);
+        return result;
     }
 }
 

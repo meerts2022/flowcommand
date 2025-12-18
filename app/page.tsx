@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import InstanceCard from './components/InstanceCard';
 
-// Force dynamic rendering - no caching, always fetch fresh data
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Use Incremental Static Regeneration (ISR) with 60s cache
+// This DRASTICALLY reduces CPU usage by caching pages
+export const revalidate = 60; // Revalidate every 60 seconds
 
 function CardSkeleton() {
   return (
