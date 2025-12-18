@@ -20,11 +20,11 @@ async function getInstanceStatus(instance: N8nInstance) {
 
         if (isHealthy) {
             try {
-                // 🚀 REDUCED API CALLS: Only fetch 10 workflows and 5 executions
-                // This reduces CPU usage from 100+ API calls to ~10
+                // 🚀 OPTIMIZED: Get accurate workflow count but limit executions
+                // Cache prevents excessive API calls while maintaining accuracy
                 const [workflows, executions] = await Promise.all([
-                    client.getWorkflows(10),     // Reduced from getAllWorkflows()
-                    client.getExecutions(5)      // Reduced from 50 to 5
+                    client.getAllWorkflows(),    // Get ALL for accurate count (cached!)
+                    client.getExecutions(20)     // Increased to 20 for better accuracy
                 ]);
 
                 workflowCount = workflows.length;

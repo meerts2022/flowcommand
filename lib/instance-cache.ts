@@ -7,7 +7,7 @@ type CachedInstance = {
 };
 
 const cache = new Map<string, CachedInstance>();
-const CACHE_TTL = 30000; // 30 seconds cache
+const CACHE_TTL = 45000; // 45 seconds cache (increased for getAllWorkflows)
 
 export function getCachedInstanceStatus(instanceId: string) {
     const cached = cache.get(instanceId);
